@@ -1,0 +1,154 @@
+name: Generate Maria Authorization PDF
+
+on:
+  workflow_dispatch: # allows manual trigger
+
+jobs:
+  generate_pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout the repo
+      - uses: actions/checkout@v3
+
+      # 2️⃣ Setup Python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install fpdf requests
+
+      # 4️⃣ Generate PDF
+      - name: Generate PDF
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python <<EOF
+import base64
+import requests
+from fpdf import FPDF
+import os
+
+GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
+REPO_OWNER = "elonmuskunions-glitch"
+REPO_NAME = "delivery-authorization"
+FILE_PATH_REMOTE = "Combined_Professional_Authorization_Maria.pdf"
+COMMIT_MESSAGE = "Add/update combined professional package delivery authorization for Maria del Socorro Giraldo Vargas"
+BRANCH = "main"
+
+# ---------- Generate PDF ----------
+pdf = FPDF()
+pdf.set_auto_page_break(auto=True, margin=15)
+
+pdf.add_page()
+pdf.set_font("Helvetica", 'B', 16)
+pdf.cell(0, 10, "Professional Package Delivery Authorization – Maria del Socorro Giraldo Vargas", ln=True, align="C")
+pdf.ln(10)
+pdf.set_font("Helvetica", '', 12)
+pdf.multi_cell(0, 8,
+"""Date: January 21, 2026
+
+To Whom It May Concern,
+
+I, Elon Musk, hereby authorize the delivery and receipt of packages addressed to me from Tesla Company to the following recipient and address:
+
+Recipient: Maria del Socorro Giraldo Vargas
+Phone: 624 569 270
+Address: Liberty Avenue #4, 4D
+Postal Code: 12500
+Castellón Winery
+
+The recipient named above is authorized to accept and sign for all packages delivered to the address specified. This authorization is valid until further notice. Proper identification may be requested upon delivery.
+
+For verification, I may be contacted at elonmuskunions@gmail.com or 917-5*****346.
+
+Sincerely,
+
+Elon Musk
+Location: Tennessee
+Signature: ____________________________
+""")
+
+pdf.add_page()
+pdf.set_font("Helvetica", 'B', 16)
+pdf.cell(0, 10, "Delivery Authorization Repository Info", ln=True, align="C")
+pdf.ln(10)
+pdf.set_font("Helvetica", '', 12)
+pdf.multi_cell(0, 8,
+"""This PDF contains the professional package delivery authorization for Maria del Socorro Giraldo Vargas and instructions for hosting/sharing via GitHub.
+
+Links after enabling GitHub Pages:
+- Raw: https://raw.githubusercontent.com/elonmuskunions-glitch/delivery-authorization/main/Combined_Professional_Authorization_Maria.pdf
+- Pages: https://elonmuskunions-glitch.github.io/delivery-authorization/Combined_Professional_Authorization_Maria.pdf
+""")
+
+LOCAL_PDF_PATH = "Combined_Professional_Authorization_Maria.pdf"
+pdf.output(LOCAL_PDF_PATH)
+
+# ---------- Upload / Overwrite PDF ----------
+with open(LOCAL_PDF_PATH, "rb") as f:
+    content_base64 = base64.b64encode(f.read()).decode()
+
+url_file = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH_REMOTE}?ref={BRANCH}"
+headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+response_file = requests.get(url_file, headers=headers)
+file_sha = response_file.json()['sha'] if response_file.status_code == 200 else None
+
+url_upload = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH_REMOTE}"
+payload_upload = {"message": COMMIT_MESSAGE, "content": content_base64, "branch": BRANCH}
+if file_sha:
+    payload_upload["sha"] = file_sha
+
+response_upload = requests.put(url_upload, json=payload_upload, headers=headers)
+if response_upload.status_code in [200, 201]:
+    print("✅ PDF uploaded/updated successfully!")
+else:
+    print("❌ Error uploading PDF", response_upload.status_code, response_upload.text)
+    exit()
+
+# ---------- Print links ----------
+raw_link = f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{BRANCH}/{FILE_PATH_REMOTE}"
+pages_link = f"https://{REPO_OWNER}.github.io/{REPO_NAME}/{FILE_PATH_REMOTE}"
+print("\n📌 Links:")
+print(f"- Raw download link: {raw_link}")
+print(f"- GitHub Pages link: {pages_link}")
+EOF# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "master" branch
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
+
+      # Runs a set of commands using the runners shell
+      - name: Run a multi-line script
+        run: |
+          echo Add other actions to build,
+          echo test, and deploy your project.
