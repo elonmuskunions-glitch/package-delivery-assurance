@@ -1,0 +1,127 @@
+import base64
+import requests
+from fpdf import FPDF
+
+# ---------- CONFIG ----------
+GITHUB_TOKEN = "YOUR_PERSONAL_ACCESS_TOKEN"  # Must have repo access
+REPO_OWNER = "elonmuskunions-glitch"
+REPO_NAME = "delivery-authorization"
+FILE_PATH_REMOTE = "Combined_Professional_Authorization_Maria.pdf"
+COMMIT_MESSAGE = "Add/update combined professional package delivery authorization for Maria del Socorro Giraldo Vargas"
+BRANCH = "main"
+# ----------------------------
+
+# ---------- 1️⃣ Generate PDF ----------
+pdf = FPDF()
+pdf.set_auto_page_break(auto=True, margin=15)
+
+# Page 1: Professional Authorization
+pdf.add_page()
+pdf.set_font("Helvetica", 'B', 16)
+pdf.cell(0, 10, "Professional Package Delivery Authorization – Maria del Socorro Giraldo Vargas", ln=True, align="C")
+pdf.ln(10)
+
+pdf.set_font("Helvetica", '', 12)
+pdf.multi_cell(0, 8,
+"""Date: January 21, 2026
+
+To Whom It May Concern,
+
+I, Elon Musk, hereby authorize the delivery and receipt of packages addressed to me from Tesla Company to the following recipient and address:
+
+Recipient: Maria del Socorro Giraldo Vargas
+Phone: 624 569 270
+Address: Liberty Avenue #4, 4D
+Postal Code: 12500
+Castellón Winery
+
+The recipient named above is authorized to accept and sign for all packages delivered to the address specified. This authorization is valid until further notice. Proper identification may be requested upon delivery.
+
+For verification, I may be contacted at elonmuskunions@gmail.com or 917-5*****346.
+
+Sincerely,
+
+Elon Musk
+Location: Tennessee
+Signature: ____________________________
+""")
+
+# Page 2: README / Hosting Info
+pdf.add_page()
+pdf.set_font("Helvetica", 'B', 16)
+pdf.cell(0, 10, "Delivery Authorization Repository Info", ln=True, align="C")
+pdf.ln(10)
+
+pdf.set_font("Helvetica", '', 12)
+pdf.multi_cell(0, 8,
+"""This PDF contains the professional package delivery authorization for Maria del Socorro Giraldo Vargas and instructions for hosting/sharing via GitHub.
+
+### Hosting Instructions:
+
+1. Upload this PDF to your GitHub repository: https://github.com/elonmuskunions-glitch/delivery-authorization
+2. Commit with a message like:
+   "Add professional package delivery authorization for Maria del Socorro Giraldo Vargas"
+3. Enable GitHub Pages in Settings → Pages → main branch → / (root)
+4. Links will be available as:
+
+- Raw download link:
+  https://raw.githubusercontent.com/elonmuskunions-glitch/delivery-authorization/main/Combined_Professional_Authorization_Maria.pdf
+
+- GitHub Pages link:
+  https://elonmuskunions-glitch.github.io/delivery-authorization/Combined_Professional_Authorization_Maria.pdf
+
+This single PDF contains everything needed to share or host the authorization professionally.
+""")
+
+# Save PDF locally
+LOCAL_PDF_PATH = "Combined_Professional_Authorization_Maria.pdf"
+pdf.output(LOCAL_PDF_PATH)
+
+# ---------- 2️⃣ Upload / Overwrite PDF ----------
+# Read PDF and encode in base64
+with open(LOCAL_PDF_PATH, "rb") as f:
+    content_base64 = base64.b64encode(f.read()).decode()
+
+# Check if file exists to get SHA
+url_file = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH_REMOTE}?ref={BRANCH}"
+headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+response_file = requests.get(url_file, headers=headers)
+file_sha = response_file.json()['sha'] if response_file.status_code == 200 else None
+
+# Upload / overwrite PDF
+url_upload = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH_REMOTE}"
+payload_upload = {"message": COMMIT_MESSAGE, "content": content_base64, "branch": BRANCH}
+if file_sha:
+    payload_upload["sha"] = file_sha  # Overwrite
+
+response_upload = requests.put(url_upload, json=payload_upload, headers=headers)
+if response_upload.status_code in [200, 201]:
+    print("✅ PDF uploaded/updated successfully!")
+else:
+    print("❌ Error uploading PDF")
+    print(response_upload.status_code, response_upload.text)
+    exit()
+
+# ---------- 3️⃣ Enable GitHub Pages ----------
+url_pages = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/pages"
+payload_pages = {"source": {"branch": BRANCH, "path": "/"}}
+
+response_pages = requests.post(url_pages, json=payload_pages, headers=headers)
+if response_pages.status_code in [201, 202]:
+    print("✅ GitHub Pages enabled successfully!")
+else:
+    # Pages might already exist, try PATCH
+    response_pages = requests.patch(url_pages, json=payload_pages, headers=headers)
+    if response_pages.status_code in [200, 201, 202]:
+        print("✅ GitHub Pages updated successfully!")
+    else:
+        print("❌ Error enabling GitHub Pages")
+        print(response_pages.status_code, response_pages.text)
+
+# ---------- 4️⃣ Print final links ----------
+raw_link = f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/{BRANCH}/{FILE_PATH_REMOTE}"
+pages_link = f"https://{REPO_OWNER}.github.io/{REPO_NAME}/{FILE_PATH_REMOTE}"
+
+print("\n📌 Links:")
+print(f"- Raw download link: {raw_link}")
+print(f"- GitHub Pages link: {pages_link}")
